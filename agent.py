@@ -122,8 +122,14 @@ class SearchAgent:
 
             goal = min(food_list, key=lambda f: abs(f[0] - start[0]) + abs(f[1] - start[1]))
 
-            search_fn = {'BFS': self.bfs_search, 'DFS': self.dfs_search, 'UCS': self.ucs_search}[self.active_algo]
-            path = search_fn(start, goal, percept)
+            if self.active_algo == 'BFS':
+                path = self.bfs_search(start, goal, percept)
+            elif self.active_algo == 'DFS':
+                path = self.dfs_search(start, goal, percept)
+            elif self.active_algo == 'UCS':
+                path = self.ucs_search(start, goal, percept)
+            elif self.active_algo == 'AStar':
+                path = self.astar_search(start, goal, percept['walls'], percept['grid_size'])
 
             if path is None:
                 # Unreachable - remember it so we don't re-run a full search for it every frame.
