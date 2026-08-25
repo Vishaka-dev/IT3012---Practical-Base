@@ -106,6 +106,37 @@ class SearchAgent:
     ACTION_DELTAS = {'Up': (0, 1), 'Down': (0, -1), 'Left': (-1, 0), 'Right': (1, 0)}
     STEP_COST = 1  # uniform per-move cost - every action above costs the same
 
+    def __init__(self):
+        self.plan = []
+        self.active_algo = 'BFS'
+        self.unreachable = set()  # food targets a search already failed to reach - skip re-trying them
+
+    def sense_and_act(self, percept: dict) -> str:
+        if not self.plan:
+            start = tuple(percept['agent_pos'])
+            food_list = [tuple(f) for f in percept['all_food'] if tuple(f) not in self.unreachable]
+
+            if not food_list:
+                return 'suck'  # nothing left to plan toward - existing no-op action
+
+            goal = min(food_list, key=lambda f: abs(f[0] - start[0]) + abs(f[1] - start[1]))
+
+            search_fn = {'BFS': self.bfs_search, 'DFS': self.dfs_search, 'UCS': self.ucs_search}[self.active_algo]
+            path = search_fn(start, goal, percept)
+
+            if path is None:
+                # Unreachable - remember it so we don't re-run a full search for it every frame.
+                self.unreachable.add(goal)
+                return 'suck'
+            if not path:
+                # Already standing on the goal (start == goal): execute_action must still be
+                # called once to trigger pickup, since standing there alone doesn't eat it.
+                return 'suck'
+
+            self.plan = path
+
+        return self.plan.pop(0)
+
     def _successors(self, state: tuple, walls: set, width: int, height: int):
         """Yield (action, next_state) for moves that stay in bounds and avoid walls."""
         x, y = state
