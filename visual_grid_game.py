@@ -88,6 +88,7 @@ class VisualGridHuntGame:
         opponent_cells = {tuple(op) for op in self.opponents}
 
         return {
+            'agent_pos': current,
             'wall_ahead': ahead in self.walls or ahead == current,
             'food_here': current in self.food_positions,
             'toxin_here': current in self.toxic_traps,
