@@ -1,5 +1,6 @@
 # agent.py
 import random
+import math
 from collections import deque
 import heapq
 
@@ -229,3 +230,11 @@ class SearchAgent:
                     reached[next_state] = (new_cost, state, action)
                     heapq.heappush(frontier, (new_cost, counter, next_state))
         return None
+
+    def manhattan_distance(self, pos: tuple, goal: tuple) -> int:
+        """|dx| + |dy| - admissible heuristic for 4-directional grid movement."""
+        return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
+
+    def euclidean_distance(self, pos: tuple, goal: tuple) -> float:
+        """Straight-line distance - also admissible, but underestimates more loosely than Manhattan here."""
+        return math.sqrt((pos[0] - goal[0]) ** 2 + (pos[1] - goal[1]) ** 2)
