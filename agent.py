@@ -238,3 +238,45 @@ class SearchAgent:
     def euclidean_distance(self, pos: tuple, goal: tuple) -> float:
         """Straight-line distance - also admissible, but underestimates more loosely than Manhattan here."""
         return math.sqrt((pos[0] - goal[0]) ** 2 + (pos[1] - goal[1]) ** 2)
+
+    def astar_search(self, start_pos, goal_pos, walls, grid_size, heuristic_type='manhattan') -> list:
+        """Priority queue (heapq) ordered by f = g + h. Same reached_states-at-pop-time graph-search
+        convention as ucs_search, reusing the same _successors() helper for bounds/wall checks -
+        the only structural difference is each frontier entry carries its own path_taken directly
+        instead of being reconstructed from parent pointers afterward.
+        """
+        heuristics = {
+            'manhattan': self.manhattan_distance,
+            'euclidean': self.euclidean_distance,
+        }
+        heuristic = heuristics[heuristic_type]
+
+        start_pos, goal_pos = tuple(start_pos), tuple(goal_pos)
+        walls = set(walls)
+        width, height = grid_size
+        if start_pos == goal_pos:
+            return []
+
+        counter = 0  # tie-breaker so heapq never falls through to comparing path_taken (a list, unorderable)
+        g0 = 0
+        h0 = heuristic(start_pos, goal_pos)
+        frontier = [(g0 + h0, counter, g0, start_pos, [])]  # (f_cost, counter, g_cost, current_pos, path_taken)
+        reached_states = set()
+
+        while frontier:
+            f_cost, _, g_cost, current_pos, path_taken = heapq.heappop(frontier)
+
+            if current_pos == goal_pos:
+                return path_taken
+            if current_pos in reached_states:
+                continue  # stale entry - this state was already expanded via an earlier, cheaper pop
+            reached_states.add(current_pos)
+
+            for action, next_pos in self._successors(current_pos, walls, width, height):
+                if next_pos in reached_states:
+                    continue
+                g_new = g_cost + self.STEP_COST
+                h_new = heuristic(next_pos, goal_pos)
+                counter += 1
+                heapq.heappush(frontier, (g_new + h_new, counter, g_new, next_pos, path_taken + [action]))
+        return None
