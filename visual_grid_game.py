@@ -6,10 +6,17 @@ import tkinter as tk
 class VisualGridHuntGame:
     """A flexible Pacman-style grid environment with support for configurable opponents and larger scales."""
 
+    # Compass order (clockwise) and the (dx, dy) step each direction takes.
+    DIRECTION_ORDER = ['N', 'E', 'S', 'W']
+    DIRECTION_DELTAS = {'N': (0, 1), 'E': (1, 0), 'S': (0, -1), 'W': (-1, 0)}
+    # Absolute move actions double as "face this way" since they're compass-relative, not agent-relative.
+    ACTION_TO_FACING = {'Up': 'N', 'Down': 'S', 'Left': 'W', 'Right': 'E'}
+
     def __init__(self, width=10, height=10, num_food=10, num_opponents=2, custom_walls=None):
         self.width = width
         self.height = height
         self.agent_pos = [0, 0]  # Starting position (x, y)
+        self.facing = 'N'  # Direction the agent is currently facing
 
         if custom_walls is not None:
             self.walls = set(custom_walls)
@@ -49,20 +56,51 @@ class VisualGridHuntGame:
         self.steps = 0
         self.collision = False
 
+    def get_cell_ahead(self) -> tuple:
+        """The grid cell directly in front of the agent, given self.facing, clipped to the grid bounds."""
+        dx, dy = self.DIRECTION_DELTAS[self.facing]
+        ax, ay = self.agent_pos
+        nx = min(self.width - 1, max(0, ax + dx))
+        ny = min(self.height - 1, max(0, ay + dy))
+        return (nx, ny)
+
+    def _neighbor_cells(self) -> list:
+        """The (up to) four cells orthogonally adjacent to the agent, clipped to the grid bounds."""
+        ax, ay = self.agent_pos
+        cells = []
+        for dx, dy in self.DIRECTION_DELTAS.values():
+            nx = min(self.width - 1, max(0, ax + dx))
+            ny = min(self.height - 1, max(0, ay + dy))
+            cells.append((nx, ny))
+        return cells
+
+    def rotate(self, turn: str):
+        """Turn the agent in place. turn is 'left' or 'right'; does not change agent_pos."""
+        idx = self.DIRECTION_ORDER.index(self.facing)
+        if turn == 'right':
+            self.facing = self.DIRECTION_ORDER[(idx + 1) % 4]
+        elif turn == 'left':
+            self.facing = self.DIRECTION_ORDER[(idx - 1) % 4]
+
     def get_percept(self) -> dict:
+        current = tuple(self.agent_pos)
+        ahead = self.get_cell_ahead()
+        opponent_cells = {tuple(op) for op in self.opponents}
+
         return {
-            'agent_pos': list(self.agent_pos),
-            'opponent_positions': [list(op) for op in self.opponents],
-            'smells_food': tuple(self.agent_pos) in self.food_positions,
-            'hit_wall': tuple(self.agent_pos) in self.walls,
+            'wall_ahead': ahead in self.walls or ahead == current,
+            'food_here': current in self.food_positions,
+            'toxin_here': current in self.toxic_traps,
+            'opponent_adjacent': any(cell in opponent_cells for cell in self._neighbor_cells()),
             'collision': self.collision,
             'score': self.score,
-            'remaining_food': len(self.food_positions),
-            'smells_toxin': tuple(self.agent_pos) in self.toxic_traps
+            'remaining_food': len(self.food_positions)
         }
 
     def execute_action(self, action: str):
         self.steps += 1
+        if action in self.ACTION_TO_FACING:
+            self.facing = self.ACTION_TO_FACING[action]
         new_pos = list(self.agent_pos)
 
         if action == 'Up':
