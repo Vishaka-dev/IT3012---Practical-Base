@@ -115,6 +115,8 @@ class VisualGridHuntGame:
             new_pos = list(self.get_cell_ahead())
         elif action == 'turn_left':
             self.rotate('left')
+        elif action == 'turn_right':
+            self.rotate('right')
         elif action == 'suck':
             pass  # food/toxin pickup on the current cell happens below regardless of action
 

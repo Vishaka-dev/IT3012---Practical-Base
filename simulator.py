@@ -1,6 +1,6 @@
 # simulator.py
 from visual_grid_game import VisualGridHuntGame
-from agent import GreedyGridAgent, SimpleReflexAgent
+from agent import GreedyGridAgent, SimpleReflexAgent, ModelBasedAgent
 
 def run_grid_hunt(agent_cls=SimpleReflexAgent):
     env = VisualGridHuntGame()
