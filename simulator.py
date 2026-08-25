@@ -1,19 +1,19 @@
 # simulator.py
-from grid_game import GridHuntGame
-from agent import GreedyGridAgent
+from visual_grid_game import VisualGridHuntGame
+from agent import GreedyGridAgent, SimpleReflexAgent
 
-def run_grid_hunt():
-    env = GridHuntGame()
-    agent = GreedyGridAgent()
+def run_grid_hunt(agent_cls=SimpleReflexAgent):
+    env = VisualGridHuntGame()
+    agent = agent_cls()
 
-    print("=== UC Berkeley Style Small Grid Hunt Started ===")
+    print(f"=== IT3012 Grid Hunt Started ({agent_cls.__name__}) ===")
     while not env.is_done():
-        percept = env.get_percept(agent)
+        percept = env.get_percept()
         action = agent.sense_and_act(percept)
-        env.execute_action(agent, action)
-        print(f"Pos: {percept['agent_pos']} | Food Left: {percept['remaining_food']} | Score: {percept['score']}")
+        env.execute_action(action)
+        print(f"Facing: {env.facing} | Action: {action} | Percept: {percept} | Score: {env.score}")
 
     print(f"\nGame Over! Final Score: {env.score} after {env.steps} steps.")
 
 if __name__ == "__main__":
-    run_grid_hunt()
+    run_grid_hunt(SimpleReflexAgent)

@@ -111,6 +111,12 @@ class VisualGridHuntGame:
             new_pos[0] = max(0, new_pos[0] - 1)
         elif action == 'Right':
             new_pos[0] = min(self.width - 1, new_pos[0] + 1)
+        elif action == 'move_forward':
+            new_pos = list(self.get_cell_ahead())
+        elif action == 'turn_left':
+            self.rotate('left')
+        elif action == 'suck':
+            pass  # food/toxin pickup on the current cell happens below regardless of action
 
         if tuple(new_pos) in self.walls:
             self.score -= 5
