@@ -3,6 +3,7 @@ import random
 import math
 from collections import deque
 import heapq
+from logic_engine import KnowledgeBase
 
 
 class GreedyGridAgent:
@@ -112,6 +113,11 @@ class SearchAgent:
         self.active_algo = 'BFS'
         self.unreachable = set()  # food targets a search already failed to reach - skip re-trying them
 
+        # Knowledge base used by A* to decide whether a reachable tile is also feasible
+        self.kb = KnowledgeBase()
+        self.kb.tell_rule(['TargetVisible', 'HasDust'], 'SafeToEngage')
+        self.kb.tell_rule(['SafeToEngage', 'BloodseekerMissing'], 'Retreat')
+
     def sense_and_act(self, percept: dict) -> str:
         if not self.plan:
             start = tuple(percept['agent_pos'])
@@ -129,7 +135,13 @@ class SearchAgent:
             elif self.active_algo == 'UCS':
                 path = self.ucs_search(start, goal, percept)
             elif self.active_algo == 'AStar':
-                path = self.astar_search(start, goal, percept['walls'], percept['grid_size'])
+                # Per-tile facts supplied by hand; the game does not produce them
+                tile_facts = {
+                    (1, 0): ['TargetVisible', 'HasDust', 'BloodseekerMissing'],  # deduces Retreat: blocked
+                    (0, 1): ['TargetVisible', 'HasDust'],                        # SafeToEngage only: allowed
+                }
+                path = self.astar_search(start, goal, percept['walls'], percept['grid_size'],
+                                         tile_facts=tile_facts)
 
             if path is None:
                 # Unreachable - remember it so we don't re-run a full search for it every frame.
@@ -245,12 +257,17 @@ class SearchAgent:
         """Straight-line distance - also admissible, but underestimates more loosely than Manhattan here."""
         return math.sqrt((pos[0] - goal[0]) ** 2 + (pos[1] - goal[1]) ** 2)
 
-    def astar_search(self, start_pos, goal_pos, walls, grid_size, heuristic_type='manhattan') -> list:
+    def astar_search(self, start_pos, goal_pos, walls, grid_size, heuristic_type='manhattan', tile_facts=None) -> list:
         """Priority queue (heapq) ordered by f = g + h. Same reached_states-at-pop-time graph-search
         convention as ucs_search, reusing the same _successors() helper for bounds/wall checks -
         the only structural difference is each frontier entry carries its own path_taken directly
         instead of being reconstructed from parent pointers afterward.
+
+        tile_facts maps (x, y) -> list of fact strings. A tile from which the knowledge base
+        deduces 'Retreat' is treated as infeasible and never expanded. None means no extra facts.
         """
+        if tile_facts is None:
+            tile_facts = {}
         heuristics = {
             'manhattan': self.manhattan_distance,
             'euclidean': self.euclidean_distance,
@@ -281,6 +298,13 @@ class SearchAgent:
             for action, next_pos in self._successors(current_pos, walls, width, height):
                 if next_pos in reached_states:
                     continue
+                # Reachable (walls/bounds) was already checked by _successors; now check Feasible (KB)
+                self.kb.clear_facts()
+                for fact in tile_facts.get(next_pos, []):
+                    self.kb.tell_fact(fact)
+                self.kb.forward_chain()
+                if 'Retreat' in self.kb.facts:
+                    continue  # infeasible: skip even though physically reachable
                 g_new = g_cost + self.STEP_COST
                 h_new = heuristic(next_pos, goal_pos)
                 counter += 1
